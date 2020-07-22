@@ -62,6 +62,44 @@ def training_model(dataloaders,dataset_sizes,model,criterion,optimizer,scheduler
             print('{} Loss: {:.4f} ,ACC:{:.4f}'.format(phase, epoch_loss,epoch_acc))
     return model,loss_dict,acc_dict
 
+def test_model(dataloaders,dataset_sizes,model,criterion):
+    
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model.to(device)
+    sum_img = 0
+    model.eval()
+    
+    all_labels = []
+    all_preds  = []
+    all_clses  = []
+    
+    running_loss = 0.0
+    running_corrects = 0.
+    
+    phase="val"
+    for inputs, labels, cls in dataloaders[phase]:
+        
+        sum_img += inputs.size(0)
+        print("{:6}/{:6}".format(sum_img,dataset_sizes[phase]),end="\r")
+
+        inputs = inputs.to(device)
+        labels = labels.to(device)
+
+        preds = model(inputs)
+        labels = labels.view_as(preds)
+        loss = criterion(preds,labels)
+        
+        running_loss += loss.item() * inputs.size(0)
+        running_corrects  += torch.sum( (preds>0.5) == labels ).item()
+        
+        all_labels += list(labels.to("cpu").numpy().reshape(-1))
+        all_preds  += list(preds.detach().to("cpu").numpy().reshape(-1))
+        all_clses  += cls
+        
+    epoch_loss = running_loss / dataset_sizes[phase]
+    epoch_acc  = running_corrects / dataset_sizes[phase]
+    print('Loss: {:.4f} ,ACC:{:.4f}'.format(epoch_loss,epoch_acc))
+    return epoch_loss,epoch_acc,np.array(all_labels),np.array(all_preds),all_clses
 
 def data_transformer_torch_train(): #rgb
     data_transforms = transforms.Compose([
